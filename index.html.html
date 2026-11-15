@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radar Trilateration Simulator - Mật Mã GPS (THCS Lạc Long Quân)</title>
+    <style>
+        :root {
+            --bg-dark: #0a1118;
+            --panel-bg: #111d29;
+            --border-color: #1e354d;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-blue: #3b82f6;
+            --accent-yellow: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(90deg, #0d1926 0%, #162a3d 100%);
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .title-box h1 {
+            font-size: 1.25rem;
+            color: var(--accent-cyan);
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .title-box p {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        .mode-tabs {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            background-color: #162636;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            border-color: var(--accent-cyan);
+        }
+
+        .tab-btn.active {
+            background-color: var(--accent-cyan);
+            color: #05131c;
+            border-color: var(--accent-cyan);
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: grid;
+            grid-template-columns: 360px 1fr 340px;
+            gap: 16px;
+            padding: 16px;
+            flex: 1;
+        }
+
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .panel-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Station Controls */
+        .station-card {
+            background-color: #0d1722;
+            border-left: 4px solid #fff;
+            border-radius: 6px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .station-a { border-left-color: var(--accent-red); }
+        .station-b { border-left-color: var(--accent-blue); }
+        .station-c { border-left-color: var(--accent-green); }
+
+        .station-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .coord-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .input-group label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        input[type="number"] {
+            background-color: #162433;
+            border: 1px solid var(--border-color);
+            color: #fff;
+            padding: 6px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            width: 100%;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            accent-color: var(--accent-cyan);
+            cursor: pointer;
+        }
+
+        .radius-val-input {
+            width: 72px !important;
+            text-align: right;
+            font-weight: 700;
+        }
+
+        /* Canvas Area */
+        .canvas-wrapper {
+            position: relative;
+            background-color: #060c12;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 540px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            flex: 1;
+            cursor: crosshair;
+            display: block;
+        }
+
+        .canvas-toolbar {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            display: flex;
+            gap: 6px;
+            background: rgba(17, 29, 41, 0.85);
+            padding: 6px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(4px);
+        }
+
+        .tool-btn {
+            background: #1a2d40;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 6px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .tool-btn:hover {
+            background: var(--accent-cyan);
+            color: #05131c;
+        }
+
+        .cursor-hud {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            background: rgba(10, 17, 24, 0.85);
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-family: monospace;
+            color: var(--accent-cyan);
+            pointer-events: none;
+        }
+
+        /* Target Lock Panel */
+        .mission-box {
+            background-color: #0d1722;
+            border: 1px dashed var(--accent-yellow);
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 0.83rem;
+            line-height: 1.45;
+            color: #fef3c7;
+        }
+
+        .lock-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .btn-lock {
+            grid-column: span 2;
+            background: linear-gradient(90deg, #dc2626 0%, #ef4444 100%);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+            transition: transform 0.1s;
+        }
+
+        .btn-lock:active {
+            transform: scale(0.98);
+        }
+
+        .status-banner {
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            display: none;
+        }
+
+        .status-success {
+            display: block;
+            background-color: rgba(16, 185, 129, 0.15);
+            border: 1px solid var(--accent-green);
+            color: #a7f3d0;
+            animation: pulseGreen 1.5s infinite;
+        }
+
+        .status-fail {
+            display: block;
+            background-color: rgba(239, 68, 68, 0.15);
+            border: 1px solid var(--accent-red);
+            color: #fecaca;
+        }
+
+        @keyframes pulseGreen {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        /* Log Table */
+        .log-container {
+            max-height: 220px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+        }
+
+        th, td {
+            padding: 6px 8px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: #162636;
+            color: var(--accent-cyan);
+            position: sticky;
+            top: 0;
+        }
+
+        .badge-ok {
+            background-color: var(--accent-green);
+            color: #05131c;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+
+        .badge-err {
+            background-color: var(--accent-red);
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+
+        .custom-target-box {
+            display: none;
+            background: #162433;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid var(--accent-cyan);
+            gap: 8px;
+            flex-direction: column;
+        }
+
+        .custom-target-box.show {
+            display: flex;
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="title-box">
+        <h1>📡 RADAR TRILATERATION SIMULATOR</h1>
+        <p>Chủ đề STEM Toán 9: “Mật Mã GPS – Toán Học Đằng Sau Hệ Thống Định Vị” | Trường THCS Lạc Long Quân</p>
+    </div>
+    <div class="mode-tabs">
+        <button class="tab-btn active" onclick="setMode('level1', this)">Thẻ SOS Cấp độ 1 (20×20 km)</button>
+        <button class="tab-btn" onclick="setMode('level2', this)">Thẻ SOS Cấp độ 2 (Phóng to 400×400)</button>
+        <button class="tab-btn" onclick="setMode('custom', this)">Chế độ GV Tùy chỉnh</button>
+    </div>
+</header>
+
+<div class="main-container">
+    <!-- Left Panel: Station Controls -->
+    <div class="panel">
+        <div class="panel-title">
+            <span>1. Dữ Liệu 3 Trạm Thu Phát Sóng</span>
+            <span id="unitLabel" style="font-size: 0.75rem; color: #94a3b8;">1 đơn vị = 1 km</span>
+        </div>
+
+        <!-- Station A -->
+        <div class="station-card station-a">
+            <div class="station-header" style="color: #f87171;">
+                <span>🔴 TRẠM A (Đỏ)</span>
+                <span id="distAInfo">d_A = --</span>
+            </div>
+            <div class="coord-inputs">
+                <div class="input-group">
+                    <label>Tọa độ X_A</label>
+                    <input type="number" id="ax" step="any" onchange="updateFromInputs()">
+                </div>
+                <div class="input-group">
+                    <label>Tọa độ Y_A</label>
+                    <input type="number" id="ay" step="any" onchange="updateFromInputs()">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Bán kính mặt đất R_A</label>
+                <div class="slider-row">
+                    <input type="range" id="arSlider" min="0" max="30" step="0.1" oninput="syncSlider('a', this.value)">
+                    <input type="number" id="arNum" step="0.1" class="radius-val-input" onchange="syncNum('a', this.value)">
+                </div>
+            </div>
+        </div>
+
+        <!-- Station B -->
+        <div class="station-card station-b">
+            <div class="station-header" style="color: #60a5fa;">
+                <span>🔵 TRẠM B (Xanh dương)</span>
+                <span id="distBInfo">d_B = --</span>
+            </div>
+            <div class="coord-inputs">
+                <div class="input-group">
+                    <label>Tọa độ X_B</label>
+                    <input type="number" id="bx" step="any" onchange="updateFromInputs()">
+                </div>
+                <div class="input-group">
+                    <label>Tọa độ Y_B</label>
+                    <input type="number" id="by" step="any" onchange="updateFromInputs()">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Bán kính mặt đất R_B</label>
+                <div class="slider-row">
+                    <input type="range" id="brSlider" min="0" max="30" step="0.1" oninput="syncSlider('b', this.value)">
+                    <input type="number" id="brNum" step="0.1" class="radius-val-input" onchange="syncNum('b', this.value)">
+                </div>
+            </div>
+        </div>
+
+        <!-- Station C -->
+        <div class="station-card station-c">
+            <div class="station-header" style="color: #34d399;">
+                <span>🟢 TRẠM C (Xanh lá)</span>
+                <span id="distCInfo">d_C = --</span>
+            </div>
+            <div class="coord-inputs">
+                <div class="input-group">
+                    <label>Tọa độ X_C</label>
+                    <input type="number" id="cx" step="any" onchange="updateFromInputs()">
+                </div>
+                <div class="input-group">
+                    <label>Tọa độ Y_C</label>
+                    <input type="number" id="cy" step="any" onchange="updateFromInputs()">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Bán kính mặt đất R_C</label>
+                <div class="slider-row">
+                    <input type="range" id="crSlider" min="0" max="30" step="0.1" oninput="syncSlider('c', this.value)">
+                    <input type="number" id="crNum" step="0.1" class="radius-val-input" onchange="syncNum('c', this.value)">
+                </div>
+            </div>
+        </div>
+
+        <div class="checkbox-row">
+            <input type="checkbox" id="showIntersections" checked onchange="draw()">
+            <label for="showIntersections">Hiển thị các giao điểm cặp đường tròn (Soi tam giác cong)</label>
+        </div>
+    </div>
+
+    <!-- Center Panel: Radar Canvas -->
+    <div class="canvas-wrapper">
+        <canvas id="radarCanvas"></canvas>
+        <div class="canvas-toolbar">
+            <button class="tool-btn" onclick="zoomCanvas(1.25)">➕ Phóng to</button>
+            <button class="tool-btn" onclick="zoomCanvas(0.8)">➖ Thu nhỏ</button>
+            <button class="tool-btn" onclick="focusIntersection()">🎯 Soi vùng giao điểm</button>
+            <button class="tool-btn" onclick="resetView()">🔄 Toàn cảnh</button>
+        </div>
+        <div class="cursor-hud" id="cursorHud">Con trỏ: (0.0 ; 0.0) | Click bản đồ để chọn điểm chốt</div>
+    </div>
+
+    <!-- Right Panel: Mission & Target Lock -->
+    <div class="panel">
+        <div class="panel-title">
+            <span>2. Trung Tâm Chỉ Huy Cứu Hộ</span>
+        </div>
+
+        <div class="mission-box" id="missionDesc">
+            <strong>NHIỆM VỤ CẤP ĐỘ 1:</strong><br>
+            Nhập bán kính từ Thẻ SOS: R_A = 5, R_B = 12, R_C = 12. Tìm tọa độ giao điểm chung của 3 đường tròn và bấm <strong>KHÓA MỤC TIÊU</strong>.
+        </div>
+
+        <!-- Custom Mode Settings -->
+        <div class="custom-target-box" id="customTargetBox">
+            <strong style="font-size: 0.8rem; color: var(--accent-cyan);">⚙️ Thiết lập Mục tiêu ẩn (Dành cho GV):</strong>
+            <div class="coord-inputs">
+                <div class="input-group">
+                    <label>Mục tiêu thật X</label>
+                    <input type="number" id="trueX" value="10" step="any" onchange="updateCustomTarget()">
+                </div>
+                <div class="input-group">
+                    <label>Mục tiêu thật Y</label>
+                    <input type="number" id="trueY" value="12" step="any" onchange="updateCustomTarget()">
+                </div>
+                <div class="input-group">
+                    <label>Dung sai (± đơn vị)</label>
+                    <input type="number" id="tolVal" value="0.5" step="0.1" onchange="updateCustomTarget()">
+                </div>
+                <div class="input-group">
+                    <label>Cỡ bản đồ (Max)</label>
+                    <input type="number" id="gridMaxInput" value="24" step="1" onchange="updateCustomGrid()">
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-title" style="margin-top: 4px;">
+            <span>3. Chốt Tọa Độ Nạn Nhân</span>
+            <span id="tolBadge" style="font-size: 0.75rem; color: var(--accent-yellow);">Dung sai: ±0.5</span>
+        </div>
+
+        <div class="lock-controls">
+            <div class="input-group">
+                <label>Tọa độ chốt X</label>
+                <input type="number" id="guessX" step="0.1" placeholder="Click bản đồ...">
+            </div>
+            <div class="input-group">
+                <label>Tọa độ chốt Y</label>
+                <input type="number" id="guessY" step="0.1" placeholder="Click bản đồ...">
+            </div>
+            <button class="btn-lock" onclick="lockTarget()">🎯 KHÓA MỤC TIÊU (LOCK TARGET)</button>
+        </div>
+
+        <div id="statusBanner" class="status-banner"></div>
+
+        <div class="panel-title" style="margin-top: 4px;">
+            <span>4. Nhật Ký Thử Nghiệm (Phụ lục 3)</span>
+            <button class="tool-btn" style="padding: 2px 6px; font-size: 0.72rem;" onclick="clearLogs()">Xóa</button>
+        </div>
+
+        <div class="log-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Lần</th>
+                        <th>(R_A; R_B; R_C)</th>
+                        <th>Chốt (X; Y)</th>
+                        <th>Kết quả</th>
+                    </tr>
+                </thead>
+                <tbody id="logBody">
+                    <tr><td colspan="4" style="color: #64748b;">Chưa có lần thử nào</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('radarCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let currentMode = 'level1';
+    let gridMax = 24;
+    let tolerance = 0.5;
+    let targetPos = { x: 8, y: 6 };
+    let guessPos = null;
+    let isLocked = false;
+    let attemptCount = 0;
+    let radarAngle = 0;
+
+    let stations = {
+        a: { x: 4, y: 3, r: 0, color: '#ef4444', label: 'A' },
+        b: { x: 20, y: 6, r: 0, color: '#3b82f6', label: 'B' },
+        c: { x: 8, y: 18, r: 0, color: '#10b981', label: 'C' }
+    };
+
+    // View transform (Pan & Zoom)
+    let view = {
+        scale: 20, // pixels per world unit
+        offsetX: 60,
+        offsetY: 500
+    };
+
+    let isDragging = false;
+    let dragStart = { x: 0, y: 0 };
+    let mouseMoved = false;
+
+    function resizeCanvas() {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+        resetView();
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    function setMode(mode, btn) {
+        currentMode = mode;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+
+        isLocked = false;
+        guessPos = null;
+        document.getElementById('guessX').value = '';
+        document.getElementById('guessY').value = '';
+        document.getElementById('statusBanner').className = 'status-banner';
+        document.getElementById('customTargetBox').classList.remove('show');
+
+        if (mode === 'level1') {
+            gridMax = 24;
+            tolerance = 0.4;
+            targetPos = { x: 8, y: 6 };
+            stations.a = { x: 4, y: 3, r: 0, color: '#ef4444', label: 'A' };
+            stations.b = { x: 20, y: 6, r: 0, color: '#3b82f6', label: 'B' };
+            stations.c = { x: 8, y: 18, r: 0, color: '#10b981', label: 'C' };
+
+            setSliderRange(0, 25, 0.5);
+            document.getElementById('unitLabel').innerText = '1 đơn vị = 1 km';
+            document.getElementById('tolBadge').innerText = 'Dung sai: ±0.4 km';
+            document.getElementById('distAInfo').innerText = 'R_A = 5 km';
+            document.getElementById('distBInfo').innerText = 'R_B = 12 km';
+            document.getElementById('distCInfo').innerText = 'R_C = 12 km';
+            document.getElementById('missionDesc').innerHTML = `
+                <strong>THẺ SOS CẤP ĐỘ 1 (Khởi động & Bản vẽ 2D):</strong><br>
+                Trạm A(4;3) cách 5 km; B(20;6) cách 12 km; C(8;18) cách 12 km.<br>
+                Hãy kéo thanh trượt bán kính tương ứng để xác định giao điểm chung của 3 đường tròn!
+            `;
+        } else if (mode === 'level2') {
+            gridMax = 400;
+            tolerance = 2.0;
+            targetPos = { x: 236.3, y: 158.4 };
+            stations.a = { x: 60, y: 90, r: 0, color: '#ef4444', label: 'A' };
+            stations.b = { x: 330, y: 40, r: 0, color: '#3b82f6', label: 'B' };
+            stations.c = { x: 150, y: 340, r: 0, color: '#10b981', label: 'C' };
+
+            setSliderRange(0, 350, 0.1);
+            document.getElementById('unitLabel').innerText = '1 đơn vị = 10 m';
+            document.getElementById('tolBadge').innerText = 'Dung sai: ±2 đơn vị (±20m)';
+            document.getElementById('distAInfo').innerText = 'd=191,0 | h=30';
+            document.getElementById('distBInfo').innerText = 'd=157,4 | h=45';
+            document.getElementById('distCInfo').innerText = 'd=210,0 | h=60';
+            document.getElementById('missionDesc').innerHTML = `
+                <strong>THẺ SOS CẤP ĐỘ 2 (Phóng to hiện trường):</strong><br>
+                1. Dùng Casio tính R = √(d² − h²) cho 3 trạm trên đỉnh đồi.<br>
+                2. Nhập bán kính (VD: 188.6; 150.8; 201.2 hoặc làm tròn 189; 151; 201).<br>
+                3. Bấm <strong>"🎯 Soi vùng giao điểm"</strong> để quan sát <em>Tam giác cong</em> và chọn tâm!
+            `;
+        } else if (mode === 'custom') {
+            document.getElementById('customTargetBox').classList.add('show');
+            gridMax = parseFloat(document.getElementById('gridMaxInput').value) || 24;
+            tolerance = parseFloat(document.getElementById('tolVal').value) || 0.5;
+            targetPos = {
+                x: parseFloat(document.getElementById('trueX').value) || 10,
+                y: parseFloat(document.getElementById('trueY').value) || 12
+            };
+            setSliderRange(0, gridMax * 1.2, 0.1);
+            document.getElementById('unitLabel').innerText = 'Chế độ tự do';
+            document.getElementById('tolBadge').innerText = `Dung sai: ±${tolerance}`;
+            document.getElementById('distAInfo').innerText = 'Tùy chỉnh';
+            document.getElementById('distBInfo').innerText = 'Tùy chỉnh';
+            document.getElementById('distCInfo').innerText = 'Tùy chỉnh';
+            document.getElementById('missionDesc').innerHTML = `
+                <strong>CHẾ ĐỘ GIÁO VIÊN TÙY CHỈNH:</strong><br>
+                Thầy/Cô có thể nhập tọa độ 3 trạm, tọa độ mục tiêu ẩn và mức dung sai bất kỳ để tạo thử thách mới cho các đội cứu hộ.
+            `;
+        }
+
+        populateInputs();
+        resetView();
+    }
+
+    function setSliderRange(min, max, step) {
+        ['arSlider', 'brSlider', 'crSlider'].forEach(id => {
+            const el = document.getElementById(id);
+            el.min = min;
+            el.max = max;
+            el.step = step;
+        });
+    }
+
+    function populateInputs() {
+        document.getElementById('ax').value = stations.a.x;
+        document.getElementById('ay').value = stations.a.y;
+        document.getElementById('arSlider').value = stations.a.r;
+        document.getElementById('arNum').value = stations.a.r;
+
+        document.getElementById('bx').value = stations.b.x;
+        document.getElementById('by').value = stations.b.y;
+        document.getElementById('brSlider').value = stations.b.r;
+        document.getElementById('brNum').value = stations.b.r;
+
+        document.getElementById('cx').value = stations.c.x;
+        document.getElementById('cy').value = stations.c.y;
+        document.getElementById('crSlider').value = stations.c.r;
+        document.getElementById('crNum').value = stations.c.r;
+    }
+
+    function updateFromInputs() {
+        stations.a.x = parseFloat(document.getElementById('ax').value) || 0;
+        stations.a.y = parseFloat(document.getElementById('ay').value) || 0;
+        stations.b.x = parseFloat(document.getElementById('bx').value) || 0;
+        stations.b.y = parseFloat(document.getElementById('by').value) || 0;
+        stations.c.x = parseFloat(document.getElementById('cx').value) || 0;
+        stations.c.y = parseFloat(document.getElementById('cy').value) || 0;
+    }
+
+    function updateCustomTarget() {
+        targetPos.x = parseFloat(document.getElementById('trueX').value) || 0;
+        targetPos.y = parseFloat(document.getElementById('trueY').value) || 0;
+        tolerance = parseFloat(document.getElementById('tolVal').value) || 0.5;
+        document.getElementById('tolBadge').innerText = `Dung sai: ±${tolerance}`;
+    }
+
+    function updateCustomGrid() {
+        gridMax = parseFloat(document.getElementById('gridMaxInput').value) || 24;
+        setSliderRange(0, gridMax * 1.2, 0.1);
+        resetView();
+    }
+
+    function syncSlider(key, val) {
+        const num = parseFloat(val) || 0;
+        stations[key].r = num;
+        document.getElementById(key + 'rNum').value = num;
+    }
+
+    function syncNum(key, val) {
+        const num = parseFloat(val) || 0;
+        stations[key].r = num;
+        document.getElementById(key + 'rSlider').value = num;
+    }
+
+    // Coordinate conversions
+    function worldToScreen(wx, wy) {
+        return {
+            x: view.offsetX + wx * view.scale,
+            y: view.offsetY - wy * view.scale
+        };
+    }
+
+    function screenToWorld(sx, sy) {
+        return {
+            x: (sx - view.offsetX) / view.scale,
+            y: (view.offsetY - sy) / view.scale
+        };
+    }
+
+    function resetView() {
+        const padding = 55;
+        const availW = canvas.width - padding * 2;
+        const availH = canvas.height - padding * 2;
+        view.scale = Math.min(availW / gridMax, availH / gridMax);
+        view.offsetX = padding + (availW - gridMax * view.scale) / 2;
+        view.offsetY = canvas.height - padding - (availH - gridMax * view.scale) / 2;
+    }
+
+    function zoomCanvas(factor, centerX = canvas.width / 2, centerY = canvas.height / 2) {
+        const worldBefore = screenToWorld(centerX, centerY);
+        view.scale *= factor;
+        const screenAfter = worldToScreen(worldBefore.x, worldBefore.y);
+        view.offsetX += (centerX - screenAfter.x);
+        view.offsetY += (centerY - screenAfter.y);
+    }
+
+    function focusIntersection() {
+        const pts = getAllPairIntersections();
+        let focusX = targetPos.x;
+        let focusY = targetPos.y;
+
+        if (pts.length > 0) {
+            // Find cluster closest to each other
+            let bestPt = pts[0];
+            let minSumDist = Infinity;
+            for (let p of pts) {
+                let sum = 0;
+                for (let q of pts) {
+                    sum += Math.hypot(p.x - q.x, p.y - q.y);
+                }
+                if (sum < minSumDist) {
+                    minSumDist = sum;
+                    bestPt = p;
+                }
+            }
+            focusX = bestPt.x;
+            focusY = bestPt.y;
+        }
+
+        const span = currentMode === 'level2' ? 6 : 4;
+        view.scale = Math.min(canvas.width, canvas.height) / span;
+        view.offsetX = canvas.width / 2 - focusX * view.scale;
+        view.offsetY = canvas.height / 2 + focusY * view.scale;
+    }
+
+    // Circle-Circle Intersection Math
+    function getCircleIntersections(c1, c2) {
+        if (c1.r <= 0 || c2.r <= 0) return [];
+        const dx = c2.x - c1.x;
+        const dy = c2.y - c1.y;
+        const d = Math.hypot(dx, dy);
+
+        if (d > c1.r + c2.r || d < Math.abs(c1.r - c2.r) || d === 0) {
+            return [];
+        }
+
+        const a = (c1.r * c1.r - c2.r * c2.r + d * d) / (2 * d);
+        const h = Math.sqrt(Math.max(0, c1.r * c1.r - a * a));
+        const x2 = c1.x + (a * dx) / d;
+        const y2 = c1.y + (a * dy) / d;
+
+        const rx = (-dy * h) / d;
+        const ry = (dx * h) / d;
+
+        if (h === 0) return [{ x: x2, y: y2 }];
+        return [
+            { x: x2 + rx, y: y2 + ry },
+            { x: x2 - rx, y: y2 - ry }
+        ];
+    }
+
+    function getAllPairIntersections() {
+        return [
+            ...getCircleIntersections(stations.a, stations.b),
+            ...getCircleIntersections(stations.b, stations.c),
+            ...getCircleIntersections(stations.a, stations.c)
+        ];
+    }
+
+    // Mouse Events for Pan, Zoom & Click
+    canvas.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        mouseMoved = false;
+        dragStart = { x: e.offsetX, y: e.offsetY };
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        const w = screenToWorld(e.offsetX, e.offsetY);
+        const decimals = currentMode === 'level2' ? 2 : 1;
+        document.getElementById('cursorHud').innerText =
+            `Con trỏ: (${w.x.toFixed(decimals)} ; ${w.y.toFixed(decimals)}) | Lăn chuột để Zoom, kéo để di chuyển`;
+
+        if (isDragging) {
+            const dx = e.offsetX - dragStart.x;
+            const dy = e.offsetY - dragStart.y;
+            if (Math.hypot(dx, dy) > 3) mouseMoved = true;
+            view.offsetX += dx;
+            view.offsetY += dy;
+            dragStart = { x: e.offsetX, y: e.offsetY };
+        }
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+        isDragging = false;
+        if (!mouseMoved) {
+            const w = screenToWorld(e.offsetX, e.offsetY);
+            const decimals = currentMode === 'level2' ? 1 : 1;
+            guessPos = {
+                x: parseFloat(w.x.toFixed(decimals)),
+                y: parseFloat(w.y.toFixed(decimals))
+            };
+            document.getElementById('guessX').value = guessPos.x;
+            document.getElementById('guessY').value = guessPos.y;
+        }
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const factor = e.deltaY < 0 ? 1.15 : 0.87;
+        zoomCanvas(factor, e.offsetX, e.offsetY);
+    }, { passive: false });
+
+    // Lock Target Verification
+    function lockTarget() {
+        const gx = parseFloat(document.getElementById('guessX').value);
+        const gy = parseFloat(document.getElementById('guessY').value);
+
+        if (isNaN(gx) || isNaN(gy)) {
+            alert('Vui lòng click lên bản đồ hoặc nhập tọa độ (X; Y) trước khi Khóa mục tiêu!');
+            return;
+        }
+
+        guessPos = { x: gx, y: gy };
+        attemptCount++;
+
+        const errDist = Math.hypot(gx - targetPos.x, gy - targetPos.y);
+        const success = errDist <= tolerance;
+        isLocked = success;
+
+        // Calculate reverse check distances
+        const dA = Math.hypot(gx - stations.a.x, gy - stations.a.y).toFixed(2);
+        const dB = Math.hypot(gx - stations.b.x, gy - stations.b.y).toFixed(2);
+        const dC = Math.hypot(gx - stations.c.x, gy - stations.c.y).toFixed(2);
+
+        const banner = document.getElementById('statusBanner');
+        if (success) {
+            banner.className = 'status-banner status-success';
+            banner.innerHTML = `
+                <strong>🚨 KHÓA MỤC TIÊU THÀNH CÔNG!</strong><br>
+                Tọa độ đội chốt: <strong>(${gx} ; ${gy})</strong><br>
+                Sai lệch thực tế: <strong>${errDist.toFixed(2)} đơn vị</strong> (Cho phép ≤ ${tolerance})<br>
+                <em>Kiểm chứng Pythagore:</em> PA ≈ ${dA}; PB ≈ ${dB}; PC ≈ ${dC}
+            `;
+        } else {
+            banner.className = 'status-banner status-fail';
+            banner.innerHTML = `
+                <strong>⚠️ CHƯA KHÓA ĐƯỢC MỤC TIÊU!</strong><br>
+                Tọa độ (${gx} ; ${gy}) nằm ngoài vùng dung sai cho phép (±${tolerance}).<br>
+                <em>Gợi ý:</em> Kiểm tra lại bán kính R_A, R_B, R_C hoặc phóng to vùng giao nhau của 3 đường tròn!
+            `;
+        }
+
+        addLogRow(attemptCount, `${stations.a.r}; ${stations.b.r}; ${stations.c.r}`, `(${gx}; ${gy})`, success);
+    }
+
+    function addLogRow(num, radii, coord, ok) {
+        const tbody = document.getElementById('logBody');
+        if (num === 1) tbody.innerHTML = '';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${num}</td>
+            <td>${radii}</td>
+            <td>${coord}</td>
+            <td>${ok ? '<span class="badge-ok">KHÓA</span>' : '<span class="badge-err">LỆCH</span>'}</td>
+        `;
+        tbody.prepend(tr);
+    }
+
+    function clearLogs() {
+        attemptCount = 0;
+        document.getElementById('logBody').innerHTML =
+            '<tr><td colspan="4" style="color: #64748b;">Chưa có lần thử nào</td></tr>';
+    }
+
+    // Main Render Loop
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Adaptive grid step
+        let step = 1;
+        if (view.scale < 4) step = 20;
+        else if (view.scale < 10) step = 10;
+        else if (view.scale < 25) step = 2;
+        else if (view.scale > 120) step = 0.2;
+        else if (view.scale > 60) step = 0.5;
+
+        const topLeft = screenToWorld(0, 0);
+        const bottomRight = screenToWorld(canvas.width, canvas.height);
+
+        const startX = Math.floor(topLeft.x / step) * step;
+        const endX = Math.ceil(bottomRight.x / step) * step;
+        const startY = Math.floor(bottomRight.y / step) * step;
+        const endY = Math.ceil(topLeft.y / step) * step;
+
+        // Draw Grid Lines
+        ctx.lineWidth = 1;
+        for (let x = startX; x <= endX; x += step) {
+            const sx = worldToScreen(x, 0).x;
+            const isAxis = Math.abs(x) < 1e-6;
+            ctx.strokeStyle = isAxis ? '#38bdf8' : 'rgba(30, 53, 77, 0.55)';
+            ctx.beginPath();
+            ctx.moveTo(sx, 0);
+            ctx.lineTo(sx, canvas.height);
+            ctx.stroke();
+
+            if (!isAxis && sx > 25 && sx < canvas.width - 15) {
+                const axisY = Math.min(Math.max(worldToScreen(0, 0).y + 14, 16), canvas.height - 8);
+                ctx.fillStyle = '#64748b';
+                ctx.font = '11px monospace';
+                ctx.fillText(Number(x.toFixed(1)), sx - 8, axisY);
+            }
+        }
+
+        for (let y = startY; y <= endY; y += step) {
+            const sy = worldToScreen(0, y).y;
+            const isAxis = Math.abs(y) < 1e-6;
+            ctx.strokeStyle = isAxis ? '#38bdf8' : 'rgba(30, 53, 77, 0.55)';
+            ctx.beginPath();
+            ctx.moveTo(0, sy);
+            ctx.lineTo(canvas.width, sy);
+            ctx.stroke();
+
+            if (!isAxis && sy > 15 && sy < canvas.height - 15) {
+                const axisX = Math.min(Math.max(worldToScreen(0, 0).x - 28, 6), canvas.width - 35);
+                ctx.fillStyle = '#64748b';
+                ctx.font = '11px monospace';
+                ctx.fillText(Number(y.toFixed(1)), axisX, sy + 4);
+            }
+        }
+
+        // Forest Boundary Box (0 to gridMax)
+        const p0 = worldToScreen(0, gridMax);
+        const p1 = worldToScreen(gridMax, 0);
+        ctx.strokeStyle = 'rgba(6, 182, 212, 0.35)';
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(p0.x, p0.y, p1.x - p0.x, p1.y - p0.y);
+        ctx.setLineDash([]);
+
+        // Draw 3 Circles & Radar Sweep
+        Object.values(stations).forEach(st => {
+            const center = worldToScreen(st.x, st.y);
+            const rPx = st.r * view.scale;
+
+            if (rPx > 0) {
+                // Circle Fill & Stroke
+                ctx.beginPath();
+                ctx.arc(center.x, center.y, rPx, 0, Math.PI * 2);
+                ctx.fillStyle = st.color + '14';
+                ctx.fill();
+                ctx.lineWidth = 2.2;
+                ctx.strokeStyle = st.color;
+                ctx.stroke();
+
+                // Radar sweep line
+                ctx.beginPath();
+                ctx.moveTo(center.x, center.y);
+                ctx.lineTo(
+                    center.x + Math.cos(radarAngle) * rPx,
+                    center.y + Math.sin(radarAngle) * rPx
+                );
+                ctx.strokeStyle = st.color + '55';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+
+            // Station Tower Marker
+            ctx.beginPath();
+            ctx.arc(center.x, center.y, 6, 0, Math.PI * 2);
+            ctx.fillStyle = st.color;
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText(`${st.label}(${st.x}; ${st.y})`, center.x + 9, center.y - 8);
+        });
+
+        // Draw Pairwise Intersection Points (to highlight Curved Triangle)
+        if (document.getElementById('showIntersections').checked) {
+            const pts = getAllPairIntersections();
+            pts.forEach(pt => {
+                const sp = worldToScreen(pt.x, pt.y);
+                ctx.beginPath();
+                ctx.arc(sp.x, sp.y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#facc15';
+                ctx.fill();
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            });
+        }
+
+        // Draw User Selected Guess Point
+        const inputGx = parseFloat(document.getElementById('guessX').value);
+        const inputGy = parseFloat(document.getElementById('guessY').value);
+        if (!isNaN(inputGx) && !isNaN(inputGy)) {
+            const gp = worldToScreen(inputGx, inputGy);
+
+            // Tolerance circle around guess
+            const tolPx = tolerance * view.scale;
+            ctx.beginPath();
+            ctx.arc(gp.x, gp.y, tolPx, 0, Math.PI * 2);
+            ctx.fillStyle = isLocked ? 'rgba(16, 185, 129, 0.25)' : 'rgba(245, 158, 11, 0.2)';
+            ctx.fill();
+            ctx.strokeStyle = isLocked ? '#10b981' : '#f59e0b';
+            ctx.setLineDash([4, 3]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Crosshair
+            ctx.strokeStyle = isLocked ? '#10b981' : '#f59e0b';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(gp.x - 10, gp.y);
+            ctx.lineTo(gp.x + 10, gp.y);
+            ctx.moveTo(gp.x, gp.y - 10);
+            ctx.lineTo(gp.x, gp.y + 10);
+            ctx.stroke();
+
+            ctx.fillStyle = isLocked ? '#34d399' : '#fbbf24';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText(`Chốt (${inputGx}; ${inputGy})`, gp.x + 10, gp.y + 15);
+        }
+
+        radarAngle += 0.025;
+        requestAnimationFrame(draw);
+    }
+
+    // Init
+    resizeCanvas();
+    setMode('level1', document.querySelector('.tab-btn'));
+    draw();
+</script>
+</body>
+</html>
