@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar Trilateration Simulator - Mật Mã GPS (THCS Lạc Long Quân)</title>
+<style>
+  :root {
+    --bg-dark: #0a1118;
+    --panel-bg: #111d29;
+    --border-color: #1e354d;
+    --text-main: #e2e8f0;
+    --text-muted: #94a3b8;
+    --accent-cyan: #06b6d4;
+    --accent-green: #10b981;
+    --accent-red: #ef4444;
+    --accent-blue: #3b82f6;
+    --accent-yellow: #f59e0b;
+    --accent-purple: #a855f7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+  body { background-color: var(--bg-dark); color: var(--text-main); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  
+  /* Header */
+  header {
+    background: linear-gradient(90deg, #0d1926 0%, #162a3d 100%);
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .title-box h1 { font-size: 1.1rem; color: var(--accent-cyan); letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+  .title-box p { font-size: 0.75rem; color: var(--text-muted); }
+  .mode-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tab-btn {
+    background-color: #162636; color: var(--text-main); border: 1px solid var(--border-color);
+    padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: all 0.2s;
+  }
+  .tab-btn:hover { border-color: var(--accent-cyan); }
+  .tab-btn.active { background-color: var(--accent-cyan); color: #05131c; border-color: var(--accent-cyan); }
+  .tab-btn.random-tab.active { background-color: var(--accent-purple); color: #fff; border-color: var(--accent-purple); }
+
+  /* Main Layout */
+  .main-container {
+    display: grid;
+    grid-template-columns: 360px 1fr 370px;
+    gap: 12px;
+    padding: 12px;
+    flex: 1;
+    overflow: hidden;
+  }
+  @media (max-width: 1200px) { .main-container { grid-template-columns: 1fr; overflow-y: auto; height: auto; } }
+  
+  .panel {
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    max-height: calc(100vh - 80px);
+  }
+  .panel-title {
+    font-size: 0.88rem; font-weight: 700; color: var(--accent-cyan);
+    text-transform: uppercase; border-bottom: 1px solid var(--border-color);
+    padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center;
+  }
+
+  /* Station Controls */
+  .station-card {
+    background-color: #0d1722; border-left: 4px solid #fff; border-radius: 6px;
+    padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .station-a { border-left-color: var(--accent-red); }
+  .station-b { border-left-color: var(--accent-blue); }
+  .station-c { border-left-color: var(--accent-green); }
+  .station-header { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 0.84rem; }
+  .coord-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .input-group { display: flex; flex-direction: column; gap: 2px; }
+  .input-group label { font-size: 0.72rem; color: var(--text-muted); }
+  input[type="number"], input[type="text"] {
+    background-color: #162433; border: 1px solid var(--border-color); color: #fff;
+    padding: 5px 7px; border-radius: 4px; font-size: 0.82rem; width: 100%;
+  }
+  input[type="number"]:focus, input[type="text"]:focus { outline: none; border-color: var(--accent-cyan); }
+  .slider-row { display: flex; align-items: center; gap: 6px; }
+  input[type="range"] { flex: 1; accent-color: var(--accent-cyan); cursor: pointer; }
+  .radius-val-input { width: 68px !important; text-align: right; font-weight: 700; }
+
+  /* Canvas Area */
+  .canvas-wrapper {
+    position: relative; background-color: #060c12; border: 1px solid var(--border-color);
+    border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; height: 100%;
+  }
+  canvas { width: 100%; height: 100%; flex: 1; cursor: crosshair; display: block; }
+  .canvas-toolbar {
+    position: absolute; top: 10px; right: 10px; display: flex; gap: 5px;
+    background: rgba(17, 29, 41, 0.85); padding: 5px; border-radius: 6px;
+    border: 1px solid var(--border-color); backdrop-filter: blur(4px); flex-wrap: wrap; z-index: 10;
+  }
+  .tool-btn {
+    background: #1a2d40; color: var(--text-main); border: 1px solid var(--border-color);
+    padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 600;
+  }
+  .tool-btn:hover { background: var(--accent-cyan); color: #05131c; }
+  .cursor-hud {
+    position: absolute; bottom: 10px; left: 10px;
+    background: rgba(10, 17, 24, 0.85); border: 1px solid var(--border-color);
+    padding: 5px 10px; border-radius: 4px; font-size: 0.75rem; font-family: monospace; color: var(--accent-cyan);
+    pointer-events: none;
+  }
+
+  /* Right Panel & Mission Box */
+  .mission-box {
+    background-color: #0d1722; border: 1px dashed var(--accent-yellow);
+    border-radius: 6px; padding: 8px 10px; font-size: 0.78rem; line-height: 1.4; color: #fef3c7;
+  }
+  .mission-box code { background: rgba(255,255,255,0.1); padding: 1px 4px; border-radius: 3px; color: #38bdf8; font-weight: bold; }
+  
+  .custom-controls-box {
+    display: none; background: #0d1722; border: 1px solid var(--accent-cyan);
+    border-radius: 6px; padding: 8px 10px; flex-direction: column; gap: 6px; font-size: 0.78rem;
+  }
+  .custom-controls-box.show { display: flex; }
+
+  .btn-lock {
+    width: 100%; background: linear-gradient(90deg, #dc2626 0%, #ef4444 100%);
+    color: white; border: none; padding: 9px; border-radius: 6px;
+    font-size: 0.86rem; font-weight: 700; cursor: pointer; letter-spacing: 0.5px;
+    box-shadow: 0 3px 10px rgba(239, 68, 68, 0.3); transition: transform 0.1s;
+  }
+  .btn-lock:active { transform: scale(0.98); }
+
+  .status-banner { padding: 9px; border-radius: 6px; font-size: 0.8rem; line-height: 1.4; display: none; }
+  .status-success { display: block; background-color: rgba(16, 185, 129, 0.15); border: 1px solid var(--accent-green); color: #a7f3d0; }
+  .status-fail { display: block; background-color: rgba(239, 68, 68, 0.15); border: 1px solid var(--accent-red); color: #fecaca; }
+
+  /* Log Table */
+  .log-container { max-height: 160px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
+  th, td { padding: 5px 6px; text-align: center; border-bottom: 1px solid var(--border-color); }
+  th { background-color: #162636; color: var(--accent-cyan); position: sticky; top: 0; }
+  .badge-ok { background-color: var(--accent-green); color: #05131c; padding: 1px 5px; border-radius: 3px; font-weight: 700; }
+  .badge-err { background-color: var(--accent-red); color: #fff; padding: 1px 5px; border-radius: 3px; font-weight: 700; }
+  .checkbox-row { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--text-muted); cursor: pointer; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-box">
+    <h1>📡 RADAR TRILATERATION SIMULATOR</h1>
+    <p>Chủ đề STEM Toán 9: “Mật Mã GPS – Toán Học Đằng Sau Hệ Thống Định Vị” | THCS Lạc Long Quân</p>
+  </div>
+  <div class="mode-tabs">
+    <button class="tab-btn active" onclick="setMode('level1', this)">Thẻ SOS Cấp 1 (20×20 km)</button>
+    <button class="tab-btn" onclick="setMode('level2', this)">Thẻ SOS Cấp 2 (Phóng to)</button>
+    <button class="tab-btn random-tab" onclick="setMode('random', this)">🎲 Tạo Đề Ngẫu Nhiên</button>
+    <button class="tab-btn" onclick="setMode('custom', this)">⚙️ GV Tự Nhập Đề</button>
+  </div>
+</header>
+
+<div class="main-container">
+  <!-- Left Panel: Station Controls -->
+  <div class="panel">
+    <div class="panel-title">
+      <span>1. Dữ Liệu 3 Trạm Thu Phát Sóng</span>
+      <span id="unitLabel" style="font-size: 0.72rem; color: var(--text-muted);">1 đơn vị = 1 km</span>
+    </div>
+
+    <!-- Station A -->
+    <div class="station-card station-a">
+      <div class="station-header" style="color: #f87171;">
+        <span>🔴 TRẠM A (Đỏ)</span>
+        <span id="distAInfo">R_A = 5 km</span>
+      </div>
+      <div class="coord-inputs">
+        <div class="input-group"><label>Tọa độ X_A</label><input type="number" id="ax" step="any" onchange="updateFromInputs()"></div>
+        <div class="input-group"><label>Tọa độ Y_A</label><input type="number" id="ay" step="any" onchange="updateFromInputs()"></div>
+      </div>
+      <div class="input-group">
+        <label>Bán kính mặt đất R_A</label>
+        <div class="slider-row">
+          <input type="range" id="arSlider" min="0" max="50" step="0.1" oninput="syncSlider('a', this.value)">
+          <input type="number" id="arNum" step="0.1" class="radius-val-input" onchange="syncNum('a', this.value)">
+        </div>
+      </div>
+    </div>
+
+    <!-- Station B -->
+    <div class="station-card station-b">
+      <div class="station-header" style="color: #60a5fa;">
+        <span>🔵 TRẠM B (Xanh dương)</span>
+        <span id="distBInfo">R_B = 12 km</span>
+      </div>
+      <div class="coord-inputs">
+        <div class="input-group"><label>Tọa độ X_B</label><input type="number" id="bx" step="any" onchange="updateFromInputs()"></div>
+        <div class="input-group"><label>Tọa độ Y_B</label><input type="number" id="by" step="any" onchange="updateFromInputs()"></div>
+      </div>
+      <div class="input-group">
+        <label>Bán kính mặt đất R_B</label>
+        <div class="slider-row">
+          <input type="range" id="brSlider" min="0" max="50" step="0.1" oninput="syncSlider('b', this.value)">
+          <input type="number" id="brNum" step="0.1" class="radius-val-input" onchange="syncNum('b', this.value)">
+        </div>
+      </div>
+    </div>
+
+    <!-- Station C -->
+    <div class="station-card station-c">
+      <div class="station-header" style="color: #34d399;">
+        <span>🟢 TRẠM C (Xanh lá)</span>
+        <span id="distCInfo">R_C = 12 km</span>
+      </div>
+      <div class="coord-inputs">
+        <div class="input-group"><label>Tọa độ X_C</label><input type="number" id="cx" step="any" onchange="updateFromInputs()"></div>
+        <div class="input-group"><label>Tọa độ Y_C</label><input type="number" id="cy" step="any" onchange="updateFromInputs()"></div>
+      </div>
+      <div class="input-group">
+        <label>Bán kính mặt đất R_C</label>
+        <div class="slider-row">
+          <input type="range" id="crSlider" min="0" max="50" step="0.1" oninput="syncSlider('c', this.value)">
+          <input type="number" id="crNum" step="0.1" class="radius-val-input" onchange="syncNum('c', this.value)">
+        </div>
+      </div>
+    </div>
+
+    <label class="checkbox-row">
+      <input type="checkbox" id="showTriangleCheck" checked onchange="drawCanvas()">
+      Hiển thị các giao điểm cặp đường tròn (Soi tam giác cong)
+    </label>
+  </div>
+
+  <!-- Center Panel: Canvas Area -->
+  <div class="canvas-wrapper" id="canvasContainer">
+    <div class="canvas-toolbar">
+      <button class="tool-btn" onclick="zoomIn()">➕ Phóng to</button>
+      <button class="tool-btn" onclick="zoomOut()">➖ Thu nhỏ</button>
+      <button class="tool-btn" onclick="toggleTriangleHighlight()">🔍 Soi vùng giao điểm</button>
+      <button class="tool-btn" onclick="resetView()">🎯 Toàn cảnh</button>
+    </div>
+    <canvas id="radarCanvas"></canvas>
+    <div class="cursor-hud" id="cursorHUD">X: 0.00 | Y: 0.00</div>
+  </div>
+
+  <!-- Right Panel: Mission & Target Lock -->
+  <div class="panel">
+    <div class="panel-title">2. Trung Tâm Chỉ Huy Cứu Hộ</div>
+
+    <div class="mission-box" id="missionBox">
+      <b>THẺ SOS CẤP ĐỘ 1:</b><br>
+      Trạm A(<code>4;3</code>) R=5; B(<code>20;6</code>) R=12; C(<code>8;18</code>) R=12.<br>
+      Hãy kéo thanh trượt bán kính tương ứng để xác định giao điểm chung của 3 đường tròn!
+    </div>
+
+    <!-- Custom Mode Teacher Box -->
+    <div class="custom-controls-box" id="customControlsBox">
+      <b>⚙️ CÀI ĐẶT GIÁO VIÊN:</b>
+      <div class="coord-inputs">
+        <div class="input-group"><label>Mục tiêu X</label><input type="number" id="secretX" value="15" step="any"></div>
+        <div class="input-group"><label>Mục tiêu Y</label><input type="number" id="secretY" value="10" step="any"></div>
+      </div>
+      <div class="coord-inputs">
+        <div class="input-group"><label>Dung sai (±)</label><input type="number" id="toleranceInput" value="0.5" step="0.1"></div>
+        <div class="input-group"><label>Cỡ bản đồ (Max)</label><input type="number" id="mapSizeInput" value="40" step="5" onchange="updateMapSize()"></div>
+      </div>
+      <button class="tool-btn" style="background:var(--accent-cyan); color:#05131c; font-weight:700; margin-top:2px;" onclick="applyCustomTeacherTarget()">🔄 Cập nhật R từ Mục tiêu ẩn</button>
+    </div>
+
+    <div class="panel-title" style="margin-top: 4px;">3. Chốt Tọa Độ Nạn Nhân</div>
+    <div class="coord-inputs">
+      <div class="input-group">
+        <label>Tọa độ chốt X</label>
+        <input type="number" id="lockX" step="any" placeholder="Nhập X">
+      </div>
+      <div class="input-group">
+        <label>Tọa độ chốt Y</label>
+        <input type="number" id="lockY" step="any" placeholder="Nhập Y">
+      </div>
+    </div>
+
+    <button class="btn-lock" onclick="lockTarget()">🎯 KHÓA MỤC TIÊU (LOCK TARGET)</button>
+
+    <div id="statusBanner" class="status-banner"></div>
+
+    <div class="panel-title" style="margin-top: 4px;">
+      <span>4. Nhật Ký Thử Nghiệm</span>
+      <button class="tool-btn" style="padding: 2px 6px; font-size: 0.7rem;" onclick="clearLog()">Xóa</button>
+    </div>
+    <div class="log-container">
+      <table id="logTable">
+        <thead>
+          <tr>
+            <th>Lần</th>
+            <th>Bán kính (R_A, R_B, R_C)</th>
+            <th>Chốt (X; Y)</th>
+            <th>Kết quả</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  let mode = 'level1';
+  let canvas, ctx;
+  let scale = 18; // pixels per unit (Uniform scale for both X and Y axes)
+  let offsetX = 100;
+  let offsetY = 100;
+  let isDragging = false;
+  let startX, startY;
+  let highlightTriangle = true;
+
+  let stations = {
+    a: { x: 4,  y: 3,  r: 5,  color: '#ef4444', name: 'Trạm A' },
+    b: { x: 20, y: 6,  r: 12, color: '#3b82f6', name: 'Trạm B' },
+    c: { x: 8,  y: 18, r: 12, color: '#10b981', name: 'Trạm C' }
+  };
+
+  let customTarget = { x: 15, y: 10, tolerance: 0.5 };
+  let mapLimit = 40;
+
+  window.addEventListener('DOMContentLoaded', () => {
+    canvas = document.getElementById('radarCanvas');
+    ctx = canvas.getContext('2d');
+    
+    initCanvasSize();
+    window.addEventListener('resize', initCanvasSize);
+    setupCanvasEvents();
+
+    setMode('level1', document.querySelector('.tab-btn'));
+  });
+
+  function initCanvasSize() {
+    const wrapper = document.getElementById('canvasContainer');
+    canvas.width = wrapper.clientWidth;
+    canvas.height = wrapper.clientHeight - 40;
+    drawCanvas();
+  }
+
+  function setMode(selectedMode, btnElement) {
+    mode = selectedMode;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    if (btnElement) btnElement.classList.add('active');
+
+    const customBox = document.getElementById('customControlsBox');
+    customBox.classList.remove('show');
+    document.getElementById('statusBanner').style.display = 'none';
+
+    if (mode === 'level1') {
+      mapLimit = 30;
+      stations.a = { x: 4,  y: 3,  r: 5,  color: '#ef4444', name: 'Trạm A' };
+      stations.b = { x: 20, y: 6,  r: 12, color: '#3b82f6', name: 'Trạm B' };
+      stations.c = { x: 8,  y: 18, r: 12, color: '#10b981', name: 'Trạm C' };
+      document.getElementById('unitLabel').innerText = "1 đơn vị = 1 km";
+      document.getElementById('missionBox').innerHTML = `<b>THẺ SOS CẤP ĐỘ 1:</b><br>Trạm A(<code>4;3</code>) R=5; B(<code>20;6</code>) R=12; C(<code>8;18</code>) R=12.<br>Hãy kéo thanh trượt bán kính tương ứng để xác định giao điểm chung!`;
+      scale = 20; offsetX = 80; offsetY = 80;
+    } 
+    else if (mode === 'level2') {
+      mapLimit = 400;
+      stations.a = { x: 60,  y: 90,  r: 188.6, color: '#ef4444', name: 'Trạm A' };
+      stations.b = { x: 330, y: 40,  r: 150.8, color: '#3b82f6', name: 'Trạm B' };
+      stations.c = { x: 150, y: 340, r: 201.2, color: '#10b981', name: 'Trạm C' };
+      document.getElementById('unitLabel').innerText = "1 đơn vị = 10 m";
+      document.getElementById('missionBox').innerHTML = `<b>THẺ SOS CẤP ĐỘ 2 (Phóng to):</b><br>Xử lý sai số làm tròn số vô tỉ. Dung sai: <code>±2.0 đơn vị</code>.<br>Chốt tọa độ nạn nhân chính xác nhất!`;
+      scale = 1.5; offsetX = 50; offsetY = 50;
+    }
+    else if (mode === 'random') {
+      mapLimit = 50;
+      let rx = Math.floor(Math.random() * 20) + 10;
+      let ry = Math.floor(Math.random() * 20) + 10;
+      customTarget.x = rx; customTarget.y = ry; customTarget.tolerance = 0.5;
+
+      stations.a = { x: rx - 12 + Math.floor(Math.random()*6), y: ry - 10 + Math.floor(Math.random()*6), r: 0, color: '#ef4444', name: 'Trạm A' };
+      stations.b = { x: rx + 10 + Math.floor(Math.random()*6), y: ry - 6 + Math.floor(Math.random()*6),  r: 0, color: '#3b82f6', name: 'Trạm B' };
+      stations.c = { x: rx - 4 + Math.floor(Math.random()*6),  y: ry + 12 + Math.floor(Math.random()*6), r: 0, color: '#10b981', name: 'Trạm C' };
+
+      stations.a.r = parseFloat(Math.hypot(rx - stations.a.x, ry - stations.a.y).toFixed(1));
+      stations.b.r = parseFloat(Math.hypot(rx - stations.b.x, ry - stations.b.y).toFixed(1));
+      stations.c.r = parseFloat(Math.hypot(rx - stations.c.x, ry - stations.c.y).toFixed(1));
+
+      document.getElementById('unitLabel').innerText = "Đề ngẫu nhiên tự do";
+      document.getElementById('missionBox').innerHTML = `<b>🎲 THỬ THÁCH NGẪU NHIÊN:</b><br>Hệ thống vừa tạo tọa độ ẩn mới. Hãy tinh chỉnh R_A, R_B, R_C hoặc dùng giao hội để tìm nạn nhân!`;
+      scale = 14; offsetX = 100; offsetY = 100;
+    }
+    else if (mode === 'custom') {
+      mapLimit = parseFloat(document.getElementById('mapSizeInput').value) || 40;
+      customBox.classList.add('show');
+      document.getElementById('unitLabel').innerText = "Chế độ Giáo viên Tùy chỉnh";
+      document.getElementById('missionBox').innerHTML = `<b>⚙️ CHẾ ĐỘ GIÁO VIÊN:</b><br>Nhập tọa độ mục tiêu ẩn, bấm <i>"Cập nhật R"</i> để tạo thử thách mới cho học sinh.`;
+      
+      stations.a = { x: 10, y: 30, r: 20, color: '#ef4444', name: 'Trạm A' };
+      stations.b = { x: 40, y: 25, r: 22, color: '#3b82f6', name: 'Trạm B' };
+      stations.c = { x: 25, y: 5,  r: 18, color: '#10b981', name: 'Trạm C' };
+      scale = 12; offsetX = 90; offsetY = 90;
+    }
+
+    syncUIFromStations();
+    drawCanvas();
+  }
+
+  function syncUIFromStations() {
+    document.getElementById('ax').value = stations.a.x;
+    document.getElementById('ay').value = stations.a.y;
+    document.getElementById('arSlider').value = stations.a.r;
+    document.getElementById('arNum').value = stations.a.r;
+    document.getElementById('distAInfo').innerText = `R_A = ${stations.a.r}`;
+
+    document.getElementById('bx').value = stations.b.x;
+    document.getElementById('by').value = stations.b.y;
+    document.getElementById('brSlider').value = stations.b.r;
+    document.getElementById('brNum').value = stations.b.r;
+    document.getElementById('distBInfo').innerText = `R_B = ${stations.b.r}`;
+
+    document.getElementById('cx').value = stations.c.x;
+    document.getElementById('cy').value = stations.c.y;
+    document.getElementById('crSlider').value = stations.c.r;
+    document.getElementById('crNum').value = stations.c.r;
+    document.getElementById('distCInfo').innerText = `R_C = ${stations.c.r}`;
+
+    let maxR = Math.max(stations.a.r, stations.b.r, stations.c.r);
+    document.getElementById('arSlider').max = maxR * 1.5 + 10;
+    document.getElementById('brSlider').max = maxR * 1.5 + 10;
+    document.getElementById('crSlider').max = maxR * 1.5 + 10;
+  }
+
+  function updateFromInputs() {
+    stations.a.x = parseFloat(document.getElementById('ax').value) || 0;
+    stations.a.y = parseFloat(document.getElementById('ay').value) || 0;
+    stations.b.x = parseFloat(document.getElementById('bx').value) || 0;
+    stations.b.y = parseFloat(document.getElementById('by').value) || 0;
+    stations.c.x = parseFloat(document.getElementById('cx').value) || 0;
+    stations.c.y = parseFloat(document.getElementById('cy').value) || 0;
+    syncUIFromStations();
+    drawCanvas();
+  }
+
+  function syncSlider(st, val) {
+    stations[st].r = parseFloat(val);
+    document.getElementById(st + 'Num').value = val;
+    document.getElementById('dist' + st.toUpperCase() + 'Info').innerText = `R_${st.toUpperCase()} = ${val}`;
+    drawCanvas();
+  }
+
+  function syncNum(st, val) {
+    let num = parseFloat(val) || 0;
+    stations[st].r = num;
+    document.getElementById(st + 'rSlider').value = num;
+    document.getElementById('dist' + st.toUpperCase() + 'Info').innerText = `R_${st.toUpperCase()} = ${num}`;
+    drawCanvas();
+  }
+
+  function applyCustomTeacherTarget() {
+    let sx = parseFloat(document.getElementById('secretX').value) || 15;
+    let sy = parseFloat(document.getElementById('secretY').value) || 10;
+    let tol = parseFloat(document.getElementById('toleranceInput').value) || 0.5;
+    customTarget.x = sx; customTarget.y = sy; customTarget.tolerance = tol;
+
+    stations.a.r = parseFloat(Math.hypot(sx - stations.a.x, sy - stations.a.y).toFixed(1));
+    stations.b.r = parseFloat(Math.hypot(sx - stations.b.x, sy - stations.b.y).toFixed(1));
+    stations.c.r = parseFloat(Math.hypot(sx - stations.c.x, sy - stations.c.y).toFixed(1));
+
+    syncUIFromStations();
+    drawCanvas();
+    alert("Đã cập nhật bán kính R tương ứng với mục tiêu ẩn (" + sx + "; " + sy + ") thành công!");
+  }
+
+  function updateMapSize() {
+    mapLimit = parseFloat(document.getElementById('mapSizeInput').value) || 40;
+    drawCanvas();
+  }
+
+  // COORDINATE CONVERSION (CRITICAL: Using uniform 'scale' for both X and Y so circles remain perfectly round)
+  function toScreenX(x) { return offsetX + x * scale; }
+  function toScreenY(y) { return canvas.height - (offsetY + y * scale); }
+  function toWorldX(sx) { return (sx - offsetX) / scale; }
+  function toWorldY(sy) { return (canvas.height - sy - offsetY) / scale; }
+
+  function drawCanvas() {
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 1. Grid Lines
+    ctx.strokeStyle = '#162636';
+    ctx.lineWidth = 1;
+    ctx.fillStyle = '#64748b';
+    ctx.font = '10px Segoe UI';
+
+    let step = 5;
+    if (mapLimit <= 30) step = 2;
+    if (mapLimit <= 10) step = 1;
+    if (mapLimit >= 200) step = 50;
+
+    let minX = toWorldX(0);
+    let maxX = toWorldX(canvas.width);
+    let minY = toWorldY(canvas.height);
+    let maxY = toWorldY(0);
+
+    let startXGrid = Math.floor(minX / step) * step;
+    for (let x = startXGrid; x <= maxX; x += step) {
+      let sx = toScreenX(x);
+      ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, canvas.height); ctx.stroke();
+      if (x >= -50 && x <= mapLimit * 1.5) ctx.fillText(x, sx + 2, canvas.height - 8);
+    }
+
+    let startYGrid = Math.floor(minY / step) * step;
+    for (let y = startYGrid; y <= maxY; y += step) {
+      let sy = toScreenY(y);
+      ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(canvas.width, sy); ctx.stroke();
+      if (y >= -50 && y <= mapLimit * 1.5) ctx.fillText(y, 6, sy - 3);
+    }
+
+    // 2. Main Axes
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, toScreenY(0)); ctx.lineTo(canvas.width, toScreenY(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(toScreenX(0), 0); ctx.lineTo(toScreenX(0), canvas.height); ctx.stroke();
+
+    // 3. Draw True Circles around Stations (Uniform scale: radiusPx = r * scale for both X and Y)
+    ['a', 'b', 'c'].forEach(k => {
+      let st = stations[k];
+      let cx = toScreenX(st.x);
+      let cy = toScreenY(st.y);
+      let rPx = st.r * scale;
+
+      ctx.strokeStyle = st.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, rPx, 0, 2 * Math.PI);
+      ctx.stroke();
+
+      ctx.fillStyle = st.color + '12';
+      ctx.fill();
+
+      ctx.fillStyle = st.color;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 5, 0, 2 * Math.PI);
+      ctx.fill();
+
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 11px Segoe UI';
+      ctx.fillText(`${st.name} (${st.x}; ${st.y})`, cx + 8, cy - 8);
+    });
+
+    if (highlightTriangle) {
+      drawCurvedTriangleArea();
+    }
+
+    // 4. Target Lock Indicator
+    let lx = parseFloat(document.getElementById('lockX').value);
+    let ly = parseFloat(document.getElementById('lockY').value);
+    if (!isNaN(lx) && !isNaN(ly)) {
+      let scx = toScreenX(lx);
+      let scy = toScreenY(ly);
+
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(scx, scy, 9, 0, 2 * Math.PI); ctx.stroke();
+
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath(); ctx.arc(scx, scy, 3.5, 0, 2 * Math.PI); ctx.fill();
+
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 11px Segoe UI';
+      ctx.fillText(`Chốt (${lx}; ${ly})`, scx + 10, scy + 4);
+    }
+  }
+
+  function drawCurvedTriangleArea() {
+    let stA = stations.a, stB = stations.b, stC = stations.c;
+    let dAB = Math.hypot(stA.x - stB.x, stA.y - stB.y);
+    
+    if (dAB < stA.r + stB.r) {
+      let midX = (stA.x + stB.x + stC.x) / 3;
+      let midY = (stA.y + stB.y + stC.y) / 3;
+      let smx = toScreenX(midX);
+      let smy = toScreenY(midY);
+
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.35)';
+      ctx.beginPath();
+      ctx.arc(smx, smy, 6, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+  }
+
+  function lockTarget() {
+    let lx = parseFloat(document.getElementById('lockX').value);
+    let ly = parseFloat(document.getElementById('lockY').value);
+    const banner = document.getElementById('statusBanner');
+
+    if (isNaN(lx) || isNaN(ly)) {
+      banner.style.display = "block";
+      banner.className = "status-banner status-fail";
+      banner.innerHTML = "⚠️ Vui lòng nhập đầy đủ tọa độ chốt X và Y trước khi khóa mục tiêu!";
+      return;
+    }
+
+    let targetX = (mode === 'custom' || mode === 'random') ? customTarget.x : 8;
+    let targetY = (mode === 'custom' || mode === 'random') ? customTarget.y : 6.1;
+    if (mode === 'level1') { targetX = 8; targetY = 6; }
+    else if (mode === 'level2') { targetX = 235.6; targetY = 158.7; }
+
+    let distTarget = Math.hypot(lx - targetX, ly - targetY);
+    let allowedTolerance = (mode === 'custom' || mode === 'random') ? customTarget.tolerance : (mode === 'level2' ? 2.0 : 0.4);
+
+    let distA = Math.hypot(lx - stations.a.x, ly - stations.a.y);
+    let distB = Math.hypot(lx - stations.b.x, ly - stations.b.y);
+    let distC = Math.hypot(lx - stations.c.x, ly - stations.c.y);
+    let maxErr = Math.max(Math.abs(distA - stations.a.r), Math.abs(distB - stations.b.r), Math.abs(distC - stations.c.r));
+
+    banner.style.display = "block";
+    if (distTarget <= allowedTolerance || maxErr <= allowedTolerance) {
+      banner.className = "status-banner status-success";
+      banner.innerHTML = `🎉 <b>KHÓA MỤC TIÊU THÀNH CÔNG!</b><br>Tọa độ chốt: <b>(${lx}; ${ly})</b>.<br>Sai lệch thực tế: <b>${maxErr.toFixed(2)}</b> (Trong dung sai cho phép ±${allowedTolerance}).`;
+      addLogEntry(stations, {x: lx, y: ly}, "KHÓA", true);
+    } else {
+      banner.className = "status-banner status-fail";
+      banner.innerHTML = `❌ <b>CHƯA KHÓA ĐƯỢC MỤC TIÊU!</b><br>Tọa độ (${lx}; ${ly}) nằm ngoài vùng dung sai cho phép (±${allowedTolerance}). Sai lệch: ${maxErr.toFixed(2)}.<br><i>Gợi ý: Kiểm tra lại bán kính R hoặc tâm tam giác cong!</i>`;
+      addLogEntry(stations, {x: lx, y: ly}, "LỆCH", false);
+    }
+  }
+
+  function addLogEntry(st, lock, status, isOk) {
+    const tbody = document.querySelector('#logTable tbody');
+    const rowCount = tbody.rows.length + 1;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${rowCount}</td>
+      <td>${st.a.r}; ${st.b.r}; ${st.c.r}</td>
+      <td>(${lock.x}; ${lock.y})</td>
+      <td><span class="${isOk ? 'badge-ok' : 'badge-err'}">${status}</span></td>
+    `;
+    tbody.insertBefore(tr, tbody.firstChild);
+  }
+
+  function clearLog() {
+    document.querySelector('#logTable tbody').innerHTML = "";
+  }
+
+  function setupCanvasEvents() {
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      let rect = canvas.getBoundingClientRect();
+      let mouseX = e.clientX - rect.left;
+      let mouseY = e.clientY - rect.top;
+      let wX = toWorldX(mouseX).toFixed(2);
+      let wY = toWorldY(mouseY).toFixed(2);
+      document.getElementById('cursorHUD').innerText = `X: ${wX} | Y: ${wY}`;
+
+      if (!isDragging) return;
+      let dx = e.clientX - startX;
+      let dy = e.clientY - startY;
+      offsetX += dx;
+      offsetY += dy;
+      startX = e.clientX;
+      startY = e.clientY;
+      drawCanvas();
+    });
+
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      let factor = 1.15;
+      if (e.deltaY > 0) scale /= factor;
+      else scale *= factor;
+      scale = Math.max(0.5, Math.min(150, scale));
+      drawCanvas();
+    }, { passive: false });
+  }
+
+  function zoomIn() { scale *= 1.25; drawCanvas(); }
+  function zoomOut() { scale /= 1.25; drawCanvas(); }
+  function toggleTriangleHighlight() {
+    highlightTriangle = !highlightTriangle;
+    document.getElementById('showTriangleCheck').checked = highlightTriangle;
+    drawCanvas();
+  }
+  function resetView() {
+    if (mode === 'level1') { scale = 20; offsetX = 80; offsetY = 80; }
+    else if (mode === 'level2') { scale = 1.5; offsetX = 50; offsetY = 50; }
+    else { scale = 14; offsetX = 100; offsetY = 100; }
+    drawCanvas();
+  }
+</script>
+</body>
+</html>
